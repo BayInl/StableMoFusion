@@ -1,5 +1,5 @@
 import sys
-sys.path.append('/data2/yiheng_huang/accelerate-testing')
+sys.path.append('./accelerate-testing')
 from datetime import datetime
 import numpy as np
 import torch

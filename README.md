@@ -15,14 +15,14 @@
 This code was tested on `NVIDIA A100` and requires:
 
 * conda3 or miniconda3
-* python 3.8+
+* python 3.9+
 * pytorch 3.10+
 
 
 a. Create a conda virtual environment and activate it.
 
 ```shell
-conda create -n stablemofusion python=3.8 -y
+conda create -n stablemofusion python=3.9 -y
 conda activate stablemofusion
 ```
 

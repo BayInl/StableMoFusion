@@ -12,9 +12,9 @@ class TestOptions():
         self.parser.add_argument("--gpu_id", type=int, default=7, help='GPU id')
 
         # evaluator
-        self.parser.add_argument("--evaluator_dir", type=str, default='/data/yiheng_huang/data/pretrained_models', help='Directory path where save T2M evaluator\'s checkpoints')
-        self.parser.add_argument("--eval_meta_dir", type=str, default='/data/yiheng_huang/data', help='Directory path where save T2M evaluator\'s normalization data.')
-        self.parser.add_argument("--glove_dir",type=str,default='/data/yiheng_huang/data/glove', help='Directory path where save glove')
+        self.parser.add_argument("--evaluator_dir", type=str, default='./data/pretrained_models', help='Directory path where save T2M evaluator\'s checkpoints')
+        self.parser.add_argument("--eval_meta_dir", type=str, default='./data', help='Directory path where save T2M evaluator\'s normalization data.')
+        self.parser.add_argument("--glove_dir",type=str,default='./data/glove', help='Directory path where save glove')
         
         # inference
         self.parser.add_argument("--num_inference_steps", type=int, default=10, help='Number of iterative denoising steps during inference.')

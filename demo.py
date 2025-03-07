@@ -16,7 +16,7 @@ from models import build_models
 from argparse import Namespace
 from options.get_opt import get_opt
 # 设置临时目录路径
-os.environ['GRADIO_TEMP_DIR'] = '/data/yiheng_huang/StableMoFusion/tmp'
+os.environ['GRADIO_TEMP_DIR'] = './tmp'
 
 class GradioModel:
     def __init__(self) -> None:
