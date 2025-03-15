@@ -1,1 +1,8 @@
 data/
+tmp.txt
+*.pyc
+__pycache__/
+*.py[cod]
+venv/
+.env/
+*.log

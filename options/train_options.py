@@ -67,6 +67,18 @@ class TrainOptions():
             default=0.9999,
             help="decay factor for Exponential Moving Average of model parameters (default: 0.99988)",
         )
+
+        # edm training
+        self.parser.add_argument(
+            '--sigma_data', type=float, default=0.5, help='edm parameter')
+        self.parser.add_argument(
+            '--P_mean', type=float, default=-1.2, help='edm parameter')
+        self.parser.add_argument(
+            '--P_std', type=float, default=1.2, help='edm parameter')
+        
+        self.parser.add_argument(
+            '--trainer', type=str, default='ddpm' ,help='whether use ddpm or our edm trainer'
+        )
         
         self.initialized = True
        

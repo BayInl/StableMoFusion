@@ -6,7 +6,7 @@ from utils.plot_script import *
 
 from models import build_models
 from utils.ema import ExponentialMovingAverage
-from trainers import DDPMTrainer
+from trainers import DDPMTrainer, EDMTrainer
 from motion_loader import get_dataset_loader
 
 from accelerate.utils import set_seed
@@ -45,7 +45,14 @@ if __name__ == '__main__':
         model_ema = ExponentialMovingAverage(encoder, decay=1.0 - alpha)
     accelerator.print('Finish building Model.\n')
 
-    trainer = DDPMTrainer(opt, encoder,accelerator, model_ema)
+    if opt.trainer == 'ddpm':
+        print('using ddpm to train')
+        trainer = DDPMTrainer(opt, encoder, accelerator, model_ema)
+    elif opt.trainer == 'edm':
+        print('using edm to train')
+        trainer = EDMTrainer(opt, encoder, accelerator, model_ema)
+    else:
+        raise ValueError(f"trainer {opt.trainer} not exist!")
 
     trainer.train(train_datasetloader)
 

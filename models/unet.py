@@ -11,6 +11,7 @@ from einops import rearrange
 class TimestepEmbedder(nn.Module):
     def __init__(self, d_model, max_len=5000):
         super(TimestepEmbedder, self).__init__()
+        self.d_model = d_model
 
         pe = torch.zeros(max_len, d_model)
         position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
@@ -20,9 +21,27 @@ class TimestepEmbedder(nn.Module):
         pe[:, 1::2] = torch.cos(position * div_term)
 
         self.register_buffer('pe', pe)
+        self.register_buffer('div_term', div_term)
 
     def forward(self, x):
-        return self.pe[x]
+        """
+        Args:
+            x: 时间步张量，可以是整数索引或浮点值 [batch_size]
+        Returns:
+            时间步嵌入 [batch_size, d_model]
+        """
+        if x.dtype in [torch.int32, torch.int64, torch.long]:
+            return self.pe[x]
+        else:
+            batch_size = x.shape[0]
+            result = torch.zeros((batch_size, self.d_model),
+                                 device=x.device, dtype=x.dtype)
+
+            position = x.unsqueeze(1)  # [B, 1]，移除.float()保持原始dtype
+            result[:, 0::2] = torch.sin(position * self.div_term.to(x.dtype))
+            result[:, 1::2] = torch.cos(position * self.div_term.to(x.dtype))
+
+            return result
 
 class Downsample1d(nn.Module):
     def __init__(self, dim):
@@ -579,6 +598,25 @@ class T2MUnet(nn.Module):
 
         if enc_text is None:
             enc_text = self.encode_text(text, x.device) # [bs, seqlen, text_dim]
+            # 1/1000的概率，保存enc_text到指定目录
+            import random
+            if random.random() < 0.001:
+                import re
+                from pathlib import Path
+                import os
+                save_dir = "/root/autodl-tmp/enc_texts"
+                # 确保目录存在
+                Path(save_dir).mkdir(parents=True, exist_ok=True)
+
+                text_list = text
+                for idx, prompt in enumerate(text_list):
+                    clean_name = re.sub(
+                        r'[\s\W]+', '_', str(prompt)).strip('_')
+                    if not clean_name:
+                        clean_name = f"empty_{idx}"
+                    
+                    file_path = os.path.join(save_dir, clean_name)
+                    torch.save(enc_text[idx].detach().cpu(), file_path)
 
         cond_indices = self.mask_cond(x.shape[0], force_mask=uncond)
 
@@ -678,3 +716,6 @@ if __name__ == "__main__":
     model.eval()
     out = model.forward_with_cfg(x, timesteps, text=y)
     print(out.shape)
+
+
+import random
