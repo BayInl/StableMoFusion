@@ -41,6 +41,24 @@ class DDPMTrainer(object):
         self.optimizer = optim.AdamW(self.model.parameters(), lr=self.opt.lr, weight_decay=self.opt.weight_decay)
         self.scheduler = ExponentialLR(self.optimizer, gamma=args.decay_rate) if args.decay_rate>0 else None
 
+        # 添加时间统计变量和计数器
+        self.time_stats = {
+            'data_loading': 0,
+            'forward_time': 0,
+            'backward_time': 0
+        }
+        self.time_counts = {
+            'data_loading': 0,
+            'forward_time': 0,
+            'backward_time': 0
+        }
+        # 添加平均时间统计
+        self.avg_times = {
+            'data_loading': 0,
+            'forward_time': 0,
+            'backward_time': 0
+        }
+
     @staticmethod
     def zero_grad(opt_list):
         for opt in opt_list:
@@ -56,6 +74,7 @@ class DDPMTrainer(object):
             opt.step()
 
     def forward(self, batch_data):
+        forward_start = time.time()
         caption, motions, m_lens = batch_data
         motions = motions.detach().float()
 
@@ -85,6 +104,12 @@ class DDPMTrainer(object):
         elif self.opt.prediction_type == 'v_prediction':
             self.target = self.noise_scheduler.get_velocity(x_start, real_noise, t)
 
+        current_time = time.time() - forward_start
+        # 更新前向传播的累积平均时间
+        self.time_counts['forward_time'] += 1
+        count = self.time_counts['forward_time']
+        self.avg_times['forward_time'] = (self.avg_times['forward_time'] * (count - 1) + current_time) / count
+
     def masked_l2(self, a, b, mask, weights):
         
         loss = self.mse_criterion(a, b).mean(dim=-1) # (bath_size, motion_length)
@@ -105,11 +130,18 @@ class DDPMTrainer(object):
         return loss_logs
 
     def update(self):
+        update_start = time.time()
         self.zero_grad([self.optimizer])
         loss_logs = self.backward_G()
         self.accelerator.backward(self.loss)
         self.clip_norm([self.model])
         self.step([self.optimizer])
+        
+        current_time = time.time() - update_start
+        # 更新反向传播的累积平均时间
+        self.time_counts['backward_time'] += 1
+        count = self.time_counts['backward_time']
+        self.avg_times['backward_time'] = (self.avg_times['backward_time'] * (count - 1) + current_time) / count
 
         return loss_logs
     
@@ -170,7 +202,16 @@ class DDPMTrainer(object):
         
         for epoch in range(0, num_epochs):
             self.train_mode()
+            epoch_start = time.time()
             for i, batch_data in enumerate(train_loader):
+                data_load_end = time.time()
+                current_time = data_load_end - epoch_start
+                
+                # 更新数据加载的累积平均时间
+                self.time_counts['data_loading'] += 1
+                count = self.time_counts['data_loading']
+                self.avg_times['data_loading'] = (self.avg_times['data_loading'] * (count - 1) + current_time) / count
+
                 self.forward(batch_data)
                 log_dict = self.update()
                 it += 1
@@ -185,7 +226,7 @@ class DDPMTrainer(object):
                     else:
                         logs[k] += v
                 
-                if it % self.opt.log_every == 0 :                   
+                if it % self.opt.log_every == 0:
                     mean_loss = OrderedDict({})
                     for tag, value in logs.items():
                         mean_loss[tag] = value / self.opt.log_every
@@ -193,8 +234,16 @@ class DDPMTrainer(object):
                     print_current_loss(self.accelerator,start_time, it, mean_loss, epoch, inner_iter=i)
                     if self.accelerator.is_main_process:
                         self.writer.add_scalar("loss",mean_loss['loss_mot_rec'],it)
+                        # 打印累积平均时间统计信息
+                        total_time = time.time() - start_time
+                        self.accelerator.print(f"\nCumulative Average Time Statistics:")
+                        for key in self.avg_times:
+                            self.accelerator.print(f"Average {key}: {self.avg_times[key]:.4f}s per iteration (over {self.time_counts[key]} iterations)")
+                        self.accelerator.print(f"Total Time: {total_time:.2f}s")
                     self.accelerator.wait_for_everyone()
                 
+                epoch_start = time.time()  # 为下一次迭代重置开始时间
+
                 if it % self.opt.save_interval == 0 and self.accelerator.is_main_process: # 500
                     self.save(pjoin(self.opt.model_dir, 'latest.tar').format(it), it)
                 self.accelerator.wait_for_everyone()

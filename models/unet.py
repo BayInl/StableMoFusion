@@ -598,25 +598,6 @@ class T2MUnet(nn.Module):
 
         if enc_text is None:
             enc_text = self.encode_text(text, x.device) # [bs, seqlen, text_dim]
-            # 1/1000的概率，保存enc_text到指定目录
-            import random
-            if random.random() < 0.001:
-                import re
-                from pathlib import Path
-                import os
-                save_dir = "/root/autodl-tmp/enc_texts"
-                # 确保目录存在
-                Path(save_dir).mkdir(parents=True, exist_ok=True)
-
-                text_list = text
-                for idx, prompt in enumerate(text_list):
-                    clean_name = re.sub(
-                        r'[\s\W]+', '_', str(prompt)).strip('_')
-                    if not clean_name:
-                        clean_name = f"empty_{idx}"
-                    
-                    file_path = os.path.join(save_dir, clean_name)
-                    torch.save(enc_text[idx].detach().cpu(), file_path)
 
         cond_indices = self.mask_cond(x.shape[0], force_mask=uncond)
 
@@ -716,6 +697,3 @@ if __name__ == "__main__":
     model.eval()
     out = model.forward_with_cfg(x, timesteps, text=y)
     print(out.shape)
-
-
-import random
