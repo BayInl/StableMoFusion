@@ -11,7 +11,6 @@ from einops import rearrange
 class TimestepEmbedder(nn.Module):
     def __init__(self, d_model, max_len=5000):
         super(TimestepEmbedder, self).__init__()
-        self.d_model = d_model
 
         pe = torch.zeros(max_len, d_model)
         position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
@@ -21,27 +20,9 @@ class TimestepEmbedder(nn.Module):
         pe[:, 1::2] = torch.cos(position * div_term)
 
         self.register_buffer('pe', pe)
-        self.register_buffer('div_term', div_term)
 
     def forward(self, x):
-        """
-        Args:
-            x: 时间步张量，可以是整数索引或浮点值 [batch_size]
-        Returns:
-            时间步嵌入 [batch_size, d_model]
-        """
-        if x.dtype in [torch.int32, torch.int64, torch.long]:
-            return self.pe[x]
-        else:
-            batch_size = x.shape[0]
-            result = torch.zeros((batch_size, self.d_model),
-                                 device=x.device, dtype=x.dtype)
-
-            position = x.unsqueeze(1)  # [B, 1]，移除.float()保持原始dtype
-            result[:, 0::2] = torch.sin(position * self.div_term.to(x.dtype))
-            result[:, 1::2] = torch.cos(position * self.div_term.to(x.dtype))
-
-            return result
+        return self.pe[x]
 
 class Downsample1d(nn.Module):
     def __init__(self, dim):
